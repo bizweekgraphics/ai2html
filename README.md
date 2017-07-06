@@ -1,6 +1,11 @@
 # ai2html-bbg
 
-This is a fork of NYT’s ai2html, configured for the BBG environment. It is provided for convenience and to keep track of changes in the main branch while keeping our very minor customizations.
+This is a fork of NYT’s ai2html, configured for the BBG environment. It is provided for convenience and to keep track of changes in the main branch while keeping our very minor customizations and configuration (fonts and default settings).
+
+Among the improvements of this fork:
+
+* Warn users of the output directory for images and HTML
+* Move `scriptEnvironment` and `PROMO_WIDTH` to the top of script, and using `scriptEnvironment` throughout for non-NYT customizations
 
 # [ai2html](http://ai2html.org)
 
