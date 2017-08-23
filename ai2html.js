@@ -7,8 +7,10 @@ function main() {
 // See (for example) https://forums.adobe.com/thread/1810764 and
 // http://wwwimages.adobe.com/content/dam/Adobe/en/devnet/pdf/illustrator/scripting/Readme.txt
 
-var scriptVersion = "0.65.1"; // Increment final digit for bug fixes, middle digit for new functionality
-var scriptEnvironment = "dvz"; // not in the original -- used to force environment to be dvz
+// Increment final digit for bug fixes, middle digit for new functionality.
+// Remember to add an entry in CHANGELOG when updating the version number.
+var scriptVersion = "0.65.5";
+var scriptEnvironment = "dvz"; // not in newsdev's ai2html -- overrides whatever detectScriptEnvironment() does
 var PROMO_WIDTH = 1200;
 
 // ai2html is a script for Adobe Illustrator that converts your Illustrator document into html and css.
@@ -59,7 +61,7 @@ var nytBaseSettings = {
   ai2html_environment: {defaultValue: scriptEnvironment, includeInSettingsBlock: false, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "", notes: ""},
   settings_version: {defaultValue: scriptVersion, includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "", notes: ""},
   create_promo_image: {defaultValue: "no", includeInSettingsBlock: false, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "", notes: ""},
-  image_format: {defaultValue: ["png"], includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "array", possibleValues: "jpg, png, png24", notes: "Images will be generated in mulitple formats if multiple formats are listed, separated by commas. The first format will be used in the html. Sometimes this is useful to compare which format will have a smaller file size."},
+  image_format: {defaultValue: ["auto"], includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "array", possibleValues: "jpg, png, png24", notes: "Images will be generated in mulitple formats if multiple formats are listed, separated by commas. The first format will be used in the html. Sometimes this is useful to compare which format will have a smaller file size."},
   write_image_files: {defaultValue: "yes", includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "yesNo", possibleValues: "", notes: "Set this to \u201Cno\u201D to skip writing the image files. Generally only use this after you have run the script once with this setting set to \u201Cyes.\u201D"},
   responsiveness: {defaultValue: "fixed", includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "fixed, dynamic", notes: "Dynamic responsiveness means ai graphics will scale to fill the container they are placed in."},
   max_width: {defaultValue: "", includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "integer", possibleValues: "", notes: "Blank or any positive number in pixels, but do not write \u201Cpx\u201D - blank means artboards will set max size, instead it is written to the config file so that the max width can be applied to the template’s container."},
@@ -111,8 +113,8 @@ var defaultBaseSettings = { // dvz defaults
   ai2html_environment: {defaultValue: scriptEnvironment, includeInSettingsBlock: false, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "", notes: ""},
   settings_version: {defaultValue: scriptVersion, includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "", notes: ""},
   create_promo_image: {defaultValue: "yes", includeInSettingsBlock: false, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "", notes: ""},
-  image_format: {defaultValue: ["png"], includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "array", possibleValues: "jpg, png, png24", notes: "Images will be generated in mulitple formats if multiple formats are listed, separated by commas. The first format will be used in the html. Sometimes this is useful to compare which format will have a smaller file size."},
-  write_image_files: {defaultValue: "yes", includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "yesNo", possibleValues: "", notes: "Set this to \u201Cno\u201D to skip writing the image files. Generally only use this after you have run the script once with this setting set to \u201Cyes.\u201D"},
+  image_format: {defaultValue: ["auto"], includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "array", possibleValues: "jpg, png, png24", notes: "Images will be generated in mulitple formats if multiple formats are listed, separated by commas. The first format will be used in the html. Sometimes this is useful to compare which format will have a smaller file size."},
+  write_image_files: {defaultValue: "yes", includeInSettingsBlock: false, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "yesNo", possibleValues: "", notes: "Set this to \u201Cno\u201D to skip writing the image files. Generally only use this after you have run the script once with this setting set to \u201Cyes.\u201D"},
   responsiveness: {defaultValue: "dynamic", includeInSettingsBlock: true, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "fixed, dynamic", notes: "Dynamic responsiveness means ai graphics will scale to fill the container they are placed in."},
   max_width: {defaultValue: "", includeInSettingsBlock: false, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "integer", possibleValues: "", notes: "Blank or any positive number in pixels, but do not write \u201Cpx\u201D - blank means artboards will set max size, the max width is not included in the html stub, instead it is written to the config file so that the max width can be applied to the template’s container."},
   output: {defaultValue: "one-file", includeInSettingsBlock: false, includeInConfigFile: false, useQuoteMarksInConfigFile: false, inputType: "text", possibleValues: "one-file, multiple-files", notes: "One html file containing all the artboards or a separate html file for each artboard."},
@@ -315,7 +317,7 @@ var objectsToRelock = [];
 // Global variables set by main()
 var docSettings = {};
 var ai2htmlBaseSettings;
-var previewProjectType, scriptEnvironment;
+var previewProjectType;
 var doc, docPath, docName, docIsSaved;
 var pBar, T;
 
@@ -343,7 +345,7 @@ if (runningInNode()) {
     convertSettingsToYaml,
     parseDataAttributes,
     parseArtboardName,
-    initScriptEnvironment
+    initDocumentSettings
   ].forEach(function(f) {
     module.exports[f.name] = f;
   });
@@ -371,20 +373,17 @@ if (!app.documents.length) {
   errors.push("Ai2html is unable to run because you are editing an Opacity Mask.");
 
 } else {
+  // initialize global variables
   doc = app.activeDocument;
   docPath = doc.path + "/";
   docIsSaved = doc.saved;
-  // Use "nyt" environment if it looks like the document is in a Preview project (otherwise default to scriptEnvironment)
-  initScriptEnvironment(folderExists(docPath + "../public/_assets") ? 'nyt' : scriptEnvironment);
+  scriptEnvironment = detectScriptEnvironment();
+  initDocumentSettings(scriptEnvironment);
+}
+
+if (errors.length === 0) {
   validateArtboardNames();
-
-  //message($.list());
-
-  // initialize document settings
-  for (var setting in ai2htmlBaseSettings) {
-    docSettings[setting] = ai2htmlBaseSettings[setting].defaultValue;
-  }
-
+  initUtilityFunctions(); // init T and JSON
   T.start();
   try {
     render();
@@ -438,6 +437,7 @@ if (isTrue(docSettings.show_completion_dialog_box ) || errors.length > 0) {
   var showPromo = showCompletionAlert(promptForPromo);
   if (showPromo) createPromoImage(docSettings);
 }
+
 
 
 // =================================
@@ -516,30 +516,21 @@ function render() {
   // ================================================
 
   if (scriptEnvironment == "nyt") {
-
-    // Read yml file if it exists to determine what type of project this is
-    //
-    var yaml = readYamlConfigFile(docPath + "../config.yml");
-    if (!yaml) {
-      previewProjectType = "config.yml is missing";
-    } else {
-      if (yaml.project_type == 'ai2html') {
-        previewProjectType = 'ai2html';
-      }
-      if (yaml.scoop_slug) {
-        docSettings.scoop_slug_from_config_yml = yaml.scoop_slug;
-      }
-    }
-
-    if (previewProjectType=="config.yml is missing" ||
-        (previewProjectType=="ai2html" && !folderExists(docPath + "../public/")) ||
+    // Read yml file to determine what type of project this is
+    // (yml file should be confirmed to exist when nyt environment is set)
+    var yaml = readYamlConfigFile(docPath + "../config.yml") || {};
+    previewProjectType = yaml.project_type == 'ai2html' ? 'ai2html' : '';
+    if ((previewProjectType=="ai2html" && !folderExists(docPath + "../public/")) ||
         (previewProjectType!="ai2html" && !folderExists(docPath + "../src/"))) {
       errors.push("Make sure your Illustrator file is inside the \u201Cai\u201D folder of a Preview project.");
-      errors.push("If the Illustrator file is in the correct folder, your Preview project may be missing a config.yml file or a \u201Cpublic\u201D or a \u201Csrc\u201D folder.");
+      errors.push("If the Illustrator file is in the correct folder, your Preview project may be missing a \u201Cpublic\u201D or a \u201Csrc\u201D folder.");
       errors.push("If this is an ai2html project, it is probably easier to just create a new ai2html Preview project and move this Illustrator file into the \u201Cai\u201D folder inside the project.");
       return;
     }
 
+    if (yaml.scoop_slug) {
+      docSettings.scoop_slug_from_config_yml = yaml.scoop_slug;
+    }
     // Read .git/config file to get preview slug
     var gitConfig = readGitConfigFile(docPath + "../.git/config") || {};
     if (gitConfig.url) {
@@ -547,8 +538,7 @@ function render() {
     }
 
     docSettings.image_source_path = "_assets/";
-
-    if (previewProjectType=="ai2html") {
+    if (previewProjectType == "ai2html") {
       docSettings.html_output_path      = "/../public/";
       docSettings.html_output_extension = ".html";
       docSettings.image_output_path     = "_assets/";
@@ -575,6 +565,8 @@ function render() {
 
   if (docSettings.image_format.length === 0) {
     warnings.push("No images were created because no image formats were specified.");
+  } else if (contains(docSettings.image_format, "auto")) {
+    docSettings.image_format = [documentContainsVisibleRasterImages() ? 'jpg' : 'png'];
   } else if (documentContainsVisibleRasterImages() && !contains(docSettings.image_format, "jpg")) {
     warnings.push("An artboard contains a raster image -- consider exporting to jpg instead of " +
         docSettings.image_format[0] + ".");
@@ -586,7 +578,7 @@ function render() {
   pBar = new ProgressBar({name: "Ai2html progress", steps: calcProgressBarSteps()});
   unlockObjects(); // Unlock containers and clipping masks
   var masks = findMasks(); // identify all clipping masks and their contents
-  var artboardContent = "";
+  var artboardContent = {html: "", css: "", js: ""};
 
   forEachUsableArtboard(function(activeArtboard, abNumber) {
     var abSettings = getArtboardSettings(activeArtboard);
@@ -622,6 +614,13 @@ function render() {
     // finish generating artboard HTML and CSS
     //=====================================
 
+    artboardContent.html += "\r\t<!-- Artboard: " + getArtboardName(activeArtboard) + " -->\r" +
+       generateArtboardDiv(activeArtboard, breakpoints, docSettings) +
+       generateImageHtml(activeArtboard, docSettings) +
+       textData.html +
+       "\t</div>\r";
+    artboardContent.css += generateArtboardCss(activeArtboard, textData.styles, docSettings);
+    /*
     artboardContent +=
       "\r\t<!-- Artboard: " + getArtboardName(activeArtboard) + " -->\r" +
       generateArtboardDiv(activeArtboard, breakpoints, docSettings) +
@@ -629,14 +628,16 @@ function render() {
       generateImageHtml(activeArtboard, docSettings) +
       textData.html +
       "\t</div>\r";
+    */
 
     //=====================================
     // output html file here if doing a file for every artboard
     //=====================================
 
     if (docSettings.output=="multiple-files") {
-      generateOutputHtml(addCustomContent(artboardContent, customBlocks), docArtboardName, docSettings);
-      artboardContent = "";
+      addCustomContent(artboardContent, customBlocks);
+      generateOutputHtml(artboardContent, docArtboardName, docSettings);
+      artboardContent = {html: "", css: "", js: ""};
     }
 
   }); // end artboard loop
@@ -646,7 +647,8 @@ function render() {
   //=====================================
 
   if (docSettings.output=="one-file") {
-    generateOutputHtml(addCustomContent(artboardContent, customBlocks), docName, docSettings);
+    addCustomContent(artboardContent, customBlocks);
+    generateOutputHtml(artboardContent, docName, docSettings);
   }
 
   //=====================================
@@ -876,7 +878,7 @@ function getDateTimeStamp() {
   var month = zeroPad(d.getMonth() + 1,2);
   var hour  = zeroPad(d.getHours(),2);
   var min   = zeroPad(d.getMinutes(),2);
-  return year + "-" + month + "-" + date + " - " + hour + ":" + min;
+  return year + "-" + month + "-" + date + " " + hour + ":" + min;
 }
 
 // obj: JS object containing css properties and values
@@ -1186,10 +1188,39 @@ function showEngineInfo() {
   alert('Info:\n' + msg);
 }
 
-function initScriptEnvironment(env) {
-  scriptEnvironment = env;
-  ai2htmlBaseSettings = env == 'nyt' ? nytBaseSettings : defaultBaseSettings;
+function detectScriptEnvironment() {
+  if (typeof scriptEnvironment !== 'undefined') return scriptEnvironment
+  var env = detectTimesFonts() ? 'nyt' : '';
+  // Handle case where user seems to be at NYT but is running ai2html outside of Preview
+  if (env == 'nyt' && !fileExists(docPath + "../config.yml")) {
+    if(confirm("You seem to be running ai2html outside of NYT Preview.\nContinue in non-Preview mode?", true)) {
+      env = ''; // switch to non-nyt context
+    } else {
+      errors.push("Ai2html should be run inside a Preview project.");
+    }
+  }
+  return env;
+}
 
+function detectTimesFonts() {
+  var found = false;
+  try {
+    app.textFonts.getByName('NYTFranklin-Medium') && app.textFonts.getByName('NYTCheltenham-Medium');
+    found = true;
+  } catch(e) {}
+  return found;
+}
+
+function initDocumentSettings(env) {
+  ai2htmlBaseSettings = env == 'nyt' ? nytBaseSettings : defaultBaseSettings;
+  // initialize document settings
+  docSettings = {};
+  for (var setting in ai2htmlBaseSettings) {
+    docSettings[setting] = ai2htmlBaseSettings[setting].defaultValue;
+  }
+}
+
+function initUtilityFunctions() {
   // Enable timing using T.start() and T.stop("message")
   T = {
     stack: [],
@@ -1295,9 +1326,10 @@ function showCompletionAlert(showPrompt) {
   alertText += "\n";
   if (showPrompt) {
     alertText += rule + "Generate promo image?";
-    makePromo = confirm(alertHed  + alertText, true); // true: "No" is default
+    // confirm(<msg>, false) makes "Yes" the default (at Baden's request).
+    makePromo = confirm(alertHed  + alertText, false);
   } else {
-    alertText += rule + "ai2html-nyt5 v" + scriptVersion;
+    alertText += rule + "ai2html-" + (scriptEnvironment !== 'nyt' ? scriptEnvironment : 'nyt5') + " v" + scriptVersion;
     alert(alertHed + alertText);
     makePromo = false;
   }
@@ -1646,15 +1678,28 @@ function findCommonAncestorLayer(items) {
   return ancestorLyr;
 }
 
+// Test if a mask can be ignored
+// (An optimization -- currently only finds group masks with no text frames)
+function maskIsRelevant(mask) {
+  var parent = mask.parent;
+  if (parent.typename == "GroupItem") {
+    if (parent.textFrames.length === 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function findMasks() {
   var found = [],
-      masks;
+      masks, relevantMasks;
   // assumes clipping paths have been unlocked
   app.executeMenuCommand('Clipping Masks menu item');
   masks = toArray(doc.selection);
   clearSelection();
+  relevantMasks = filter(masks, maskIsRelevant);
   forEach(masks, function(mask) {mask.locked = true;});
-  forEach(masks, function(mask) {
+  forEach(relevantMasks, function(mask) {
     var items, obj;
     mask.locked = false;
     // select a single mask
@@ -1929,10 +1974,10 @@ function convertTextFrames(textFrames, ab) {
 
   var allStyles = pgStyles.concat(charStyles);
   var cssBlocks = map(allStyles, function(obj) {
-    return '.' + obj.classname + ' {' + formatCss(obj.style, '\t\t\t\t') + '\t\t\t}\r';
+    return '.' + obj.classname + ' {' + formatCss(obj.style, '\t\t') + '\t}\r';
   });
   if (divs.length > 0) {
-    cssBlocks.unshift('p {' + formatCss(baseStyle, '\t\t\t\t') + '\t\t\t}\r');
+    cssBlocks.unshift('p {' + formatCss(baseStyle, '\t\t') + '\t}\r');
   }
 
   return {
@@ -2456,7 +2501,6 @@ function generateImageHtml(ab, settings) {
 
   html = '\t\t<img id="' + imgId + '" class="' + nameSpace + 'aiImg"';
   if (isTrue(settings.use_lazy_loader)) {
-    html += ' data-height-multiplier="' + roundTo(abPos.height / abPos.width, 4) + '"';
     html += ' data-src="' + src + '"';
     // spaceholder while image loads
     src = 'data:image/gif;base64,R0lGODlhCgAKAIAAAB8fHwAAACH5BAEAAAAALAAAAAAKAAoAAAIIhI+py+0PYysAOw==';
@@ -2700,7 +2744,6 @@ function exportSVG(dest, ab, masks) {
 }
 
 
-
 // ===================================
 // ai2html output generation functions
 // ===================================
@@ -2738,11 +2781,10 @@ function findShowClassesForArtboard(ab, breakpoints) {
 }
 
 function generateArtboardCss(ab, textClasses, settings) {
-  var t3 = '\t\t\t',
+  var t3 = '\t',
       t4 = t3 + '\t',
       abId = "#" + nameSpace + getArtboardFullName(ab),
       css = "";
-  css += "\t\t<style type='text/css' media='screen,print'>\r";
   css += t3 + abId + " {\r";
   css += t4 + "position:relative;\r";
   css += t4 + "overflow:hidden;\r";
@@ -2755,16 +2797,14 @@ function generateArtboardCss(ab, textClasses, settings) {
   forEach(textClasses, function(cssBlock) {
     css += t3 + abId + " " + cssBlock;
   });
-
-  css += "\t\t</style>\r";
   return css;
 }
 
 // Get CSS styles that are common to all generated content
 function generatePageCss(containerId, settings) {
-  var css = "\r\t<style type='text/css' media='screen,print'>\r";
-  var t2 = '\t\t';
-  var t3 = '\t\t\t';
+  var css = "";
+  var t2 = '\t';
+  var t3 = '\t\t';
 
   if (!!settings.max_width) {
     css += t2 + "#" + containerId + " {\r";
@@ -2798,8 +2838,7 @@ function generatePageCss(containerId, settings) {
   css += t3 + "width:100% !important;\r";
   css += t2 + "}\r";
 
-  css += t2 + '.' + nameSpace + 'aiPointText p { white-space: nowrap; }\r'; // TODO: move to page css block
-  css += "\t</style>\r";
+  css += t2 + '.' + nameSpace + 'aiPointText p { white-space: nowrap; }\r';
   return css;
 }
 
@@ -2846,7 +2885,7 @@ function convertSettingsToYaml(settings) {
 }
 
 function getResizerScript() {
-  // The resizer function is embedded in the HTML page -- outside variables must
+  // The resizer function is embedded in the HTML page -- external variables must
   // be passed in.
   var resizer = function (scriptEnvironment, nameSpace) {
     // only want one resizer on the page
@@ -2892,12 +2931,14 @@ function getResizerScript() {
     }
 
     updateSize();
+
+    window.addEventListener('nyt:embed:load', updateSize); // for nyt vi compatibility
     document.addEventListener("DOMContentLoaded", updateSize);
-    // feel free to replace throttle with _.throttle, if available
+
     window.addEventListener("resize", throttle(updateSize, 200));
 
+    // based on underscore.js
     function throttle(func, wait) {
-      // based on underscore.js
       var _now = Date.now || function() { return +new Date(); },
           timeout = null, previous = 0;
       var run = function() {
@@ -2923,7 +2964,7 @@ function getResizerScript() {
   var resizerJs = '(' +
     trim(resizer.toString().replace(/  /g, '\t')) + // indent with tabs
     ')("' + scriptEnvironment + '", "' + nameSpace + '");';
-  return '<script type="text/javascript">\n\t' + resizerJs + '\n\t</script>\n\n';
+  return '<script type="text/javascript">\r\t' + resizerJs + '\r</script>\r';
 }
 
 
@@ -2937,28 +2978,30 @@ function outputLocalPreviewPage(textForFile, localPreviewDestination, settings) 
 
 function addCustomContent(content, customBlocks) {
   if (customBlocks.css) {
+    content.css += "\r\t\t/* Custom CSS */\r\t\t" + customBlocks.css.join('\r\t\t') + '\r';
+    /*
     content = "\r\t<style type='text/css' media='screen,print'>\r" +
-      "\t\t/* Custom CSS */\r\t\t" + customBlocks.css.join('\r\t\t') +
+      "\t\t" + customBlocks.css.join('\r\t\t') +
       "\t</style>\r" + content;
+    */
   }
   if (customBlocks.html) {
-    content += "\r\t<!-- Custom HTML -->\r" + customBlocks.html.join('\r') + '\r';
+    content.html += "\r\t<!-- Custom HTML -->\r" + customBlocks.html.join('\r') + '\r';
   }
   // TODO: assumed JS contained in <script> tag -- verify this?
   if (customBlocks.js) {
-    content += "\r\t<!-- Custom JS -->\r" + customBlocks.js.join('\r') + '\r';
+    content.js += "\r\t<!-- Custom JS -->\r" + customBlocks.js.join('\r') + '\r';
   }
-  return content;
 }
 
 // Wrap content HTML in a <div>, add styles and resizer script, write to a file
-function generateOutputHtml(pageContent, pageName, settings) {
+function generateOutputHtml(content, pageName, settings) {
   var linkSrc = settings.clickable_link || "";
-  var textForFile = "";
   var responsiveCss = "";
   var responsiveJs = "";
   var containerId = nameSpace + pageName + "-box";
-  var htmlFileDestination, htmlFileDestinationFolder;
+  var textForFile, html, js, css, commentBlock;
+  var htmlFileDestinationFolder;
 
   pBar.setTitle('Writing HTML output...');
 
@@ -2969,36 +3012,54 @@ function generateOutputHtml(pageContent, pageName, settings) {
     }
   }
   if (isTrue(settings.include_resizer_script)) {
-    responsiveJs  = '\t' + getResizerScript() + '\n';
+    responsiveJs  = getResizerScript();
     responsiveCss = "";
   }
 
-  // wrap content in a <div> tag
-  textForFile += '<div id="' + containerId + '" class="ai2html">\r';
+  // comments
+  commentBlock = "<!-- Generated by ai2html" + (scriptEnvironment !== 'nyt' ? '-' + scriptEnvironment : '') + " v" + scriptVersion + " - " +
+    getDateTimeStamp() + " -->\r" + "<!-- ai file: " + doc.name + " -->\r";
 
-  textForFile += "\t<!-- Generated by ai2html" + (scriptEnvironment !== 'nyt' ? '-' + scriptEnvironment : '') + " v" + scriptVersion + " - " + getDateTimeStamp() + " -->\r";
-  textForFile += "\t<!-- ai file: " + doc.name + " -->\r";
   if (scriptEnvironment == "nyt") {
-    textForFile += "\t<!-- preview: " + settings.preview_slug + " -->\r";
-    textForFile += "\t<!-- scoop  : " + settings.scoop_slug_from_config_yml + " -->\r";
+    commentBlock += "<!-- preview: " + settings.preview_slug + " -->\r";
   }
-  textForFile += generatePageCss(containerId, settings);
+  if (settings.scoop_slug_from_config_yml) {
+    commentBlock += "<!-- scoop: " + settings.scoop_slug_from_config_yml + " -->\r";
+  }
 
+  // HTML
+  html = '<div id="' + containerId + '" class="ai2html">\r';
   if (linkSrc) {
     // optional link around content
-    textForFile += "\t<a class='" + nameSpace + "ai2htmlLink' href='" + linkSrc + "'>\r";
+    html += "\t<a class='" + nameSpace + "ai2htmlLink' href='" + linkSrc + "'>\r";
   }
-
-  textForFile += responsiveCss;
-  textForFile += pageContent;
-  textForFile += responsiveJs;
-
+  html += content.html;
   if (linkSrc) {
-    textForFile += "\t</a>\r";
+    html += "\t</a>\r";
+  }
+  html += "\r</div>\r";
+
+  // CSS
+  css = "<style type='text/css' media='screen,print'>\r" +
+    generatePageCss(containerId, settings) +
+    content.css +
+    "\r</style>\r" + responsiveCss;
+
+  // JS
+  js = content.js + responsiveJs;
+
+  if (scriptEnvironment == "nyt") {
+    html = '<!-- SCOOP HTML -->\r' + commentBlock + html;
+    css = '<!-- SCOOP CSS -->\r' + commentBlock + css;
+    if (js) js ='<!-- SCOOP JS -->\r' + commentBlock + js;
   }
 
-  // close <div> wrapper
-  textForFile += "\t<!-- End ai2html" + " - " + getDateTimeStamp() + " -->\r</div>\r";
+  textForFile = css + '\r' + html + '\r' + js;
+
+  if (scriptEnvironment != "nyt") {
+    textForFile = commentBlock + textForFile +
+        "<!-- End ai2html" + " - " + getDateTimeStamp() + " -->\r";
+  }
 
   textForFile = applyTemplate(textForFile, settings);
   htmlFileDestinationFolder = docPath + settings.html_output_path;

@@ -1,14 +1,27 @@
+### v0.65.5
+- Made "Yes" the default when prompting to create a promo image.
+
+
+### v0.65.4
+- Use separate CSS, HTML and JS blocks for compatibility with NYT vi system.
+
+### v0.65.3
+- Added NYTCheltenhamCond-BoldXC
+- Improved performance on documents containing many masked images.
+
+### v0.65.2
+- Auto-detect output image format if image_format is set to "auto". (Uses jpg if a placed image is visible, otherwise uses png.)
+- Detect NYT context by looking for proprietary Times fonts.
+- Display a prompt when Times users run ai2html outside of a Preview project (the previous warming message was often overlooked).
 
 ### v0.65.1
 - Change default use_lazy_loader setting to "yes" for NYT environment.
-
 
 ### v0.65.0
 - Promote `ai2html-beta.js` to `ai2html.js`, rename old `ai2html.js` to `ai2html-legacy.js`
 
 ### v0.64.1 (ai2html-beta.js)
 - Point text is valign:middle by default
-
 
 ### v0.64.0 (ai2html-beta.js)
 - Character styles applied to text inside a paragraph are now preserved (e.g. a bolded phrase).
