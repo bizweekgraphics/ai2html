@@ -9,7 +9,7 @@ function main() {
 
 // Increment final digit for bug fixes, middle digit for new functionality.
 // Remember to add an entry in CHANGELOG when updating the version number.
-var scriptVersion = "0.65.5";
+var scriptVersion = "0.65.6";
 var scriptEnvironment = "dvz"; // not in newsdev's ai2html -- overrides whatever detectScriptEnvironment() does
 var PROMO_WIDTH = 1200;
 
@@ -242,7 +242,8 @@ var fonts = [
    {"aifont":"BWHaasTextMonoC-65Medium","family":"BWHaasTextMonoC-65Medium,HaasText,helvetica,arial,sans-serif","weight":"","style":""},
    {"aifont":"BWHaasTextMonoC-66MediumItalic","family":"BWHaasTextMonoC-66MediumItalic,HaasText,helvetica,arial,sans-serif","weight":"","style":"italic"},
    {"aifont":"BWHaasTextMonoC-75Bold","family":"BWHaasTextMonoC-75Bold,HaasText,helvetica,arial,sans-serif","weight":"","style":""},
-   {"aifont":"BWHaasTextMonoC-76BoldItalic","family":"BWHaasTextMonoC-76BoldItalic,HaasText,helvetica,arial,sans-serif","weight":"","style":"italic"}
+   {"aifont":"BWHaasTextMonoC-76BoldItalic","family":"BWHaasTextMonoC-76BoldItalic,HaasText,helvetica,arial,sans-serif","weight":"","style":"italic"},
+   {"aifont":"BWHaasGroteskWebDingbat-Regular","family":"BWHaasDingbat","weight":"","style":""}
 ];
 
 // CSS text-transform equivalents
@@ -333,6 +334,7 @@ if (runningInNode()) {
     firstBy,
     zeroPad,
     roundTo,
+    pathJoin,
     folderExists,
     formatCss,
     getCssColor,
@@ -934,6 +936,20 @@ function applyTemplate(template, replacements) {
   return template.replace(mustachePattern, replace).replace(ejsPattern, replace);
 }
 
+// Similar to Node.js path.join()
+function pathJoin() {
+  var path = "";
+  forEach(arguments, function(arg) {
+    if (!arg) return;
+    arg = String(arg);
+    arg = arg.replace(/^\/+/, "").replace(/\/+$/, "");
+    if (path.length > 0) {
+      path += '/';
+    }
+    path += arg;
+  });
+  return path;
+}
 
 
 // ======================================
@@ -1190,7 +1206,6 @@ function showEngineInfo() {
 
 function detectScriptEnvironment() {
   if (typeof scriptEnvironment !== 'undefined') return scriptEnvironment
-  var env = detectTimesFonts() ? 'nyt' : '';
   // Handle case where user seems to be at NYT but is running ai2html outside of Preview
   if (env == 'nyt' && !fileExists(docPath + "../config.yml")) {
     if(confirm("You seem to be running ai2html outside of NYT Preview.\nContinue in non-Preview mode?", true)) {
@@ -2467,8 +2482,8 @@ function convertAreaTextPath(frame) {
 // textFrames:  text frames belonging to the active artboard
 function captureArtboardImage(ab, textFrames, masks, settings) {
   var docArtboardName = getArtboardFullName(ab);
-  var imageDestinationFolder = docPath + settings.html_output_path + settings.image_output_path;
-  var imageDestination = imageDestinationFolder + docArtboardName;
+  var imageDestinationFolder = pathJoin(docPath, settings.html_output_path, settings.image_output_path);
+  var imageDestination = pathJoin(imageDestinationFolder, docArtboardName);
   var i;
   checkForOutputFolder(imageDestinationFolder, "image_output_path");
 
@@ -2729,6 +2744,7 @@ function exportSVG(dest, ab, masks) {
   //   document for export.
   var exportDoc = copyArtboardForImageExport(ab, masks);
   var opts = new ExportOptionsSVG();
+  var ofile = dest + '.svg';
   opts.embedAllFonts         = false;
   opts.fontSubsetting        = SVGFontSubsetting.None;
   opts.compressed            = false;
@@ -2737,12 +2753,25 @@ function exportSVG(dest, ab, masks) {
   opts.DTD                   = SVGDTDVersion.SVG1_1;
   opts.cssProperties         = SVGCSSPropertyLocation.STYLEATTRIBUTES;
 
-  exportDoc.exportFile(new File(dest), ExportType.SVG, opts);
+  exportDoc.exportFile(new File(ofile), ExportType.SVG, opts);
   doc.activate();
   //exportDoc.pageItems.removeAll();
   exportDoc.close(SaveOptions.DONOTSAVECHANGES);
+  // prevent SVG strokes from scaling
+  injectCSSinSVG(ofile, 'rect,circle,path { vector-effect: non-scaling-stroke; }');
 }
 
+// Injects css and rewrites file
+function injectCSSinSVG(path, css) {
+  var file = new File(path);
+  var style = '<style type="text/css"><![CDATA[\n' + css + '\n]]></style>';
+  var content;
+  if (!file.exists) return;
+  file.open("r");
+  content = file.read();
+  file.close();
+  saveTextFile(path, content.replace('</svg>', style + '\n</svg>'));
+}
 
 // ===================================
 // ai2html output generation functions

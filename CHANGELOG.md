@@ -1,6 +1,8 @@
+### v0.65.6
+- Prevent paths in SVG output from scaling by adding CSS to the .svg file.
+
 ### v0.65.5
 - Made "Yes" the default when prompting to create a promo image.
-
 
 ### v0.65.4
 - Use separate CSS, HTML and JS blocks for compatibility with NYT vi system.
