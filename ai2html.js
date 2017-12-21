@@ -2656,7 +2656,6 @@ function generateImageHtml(imgFile, imgId, imgClass, ab, settings) {
 
 // Create a promo image from the largest usable artboard
 function createPromoImage(settings) {
-  var PROMO_WIDTH = 1024;
   var abNumber = findLargestArtboard();
   if (abNumber == -1) return; // TODO: show error
 
