@@ -9,7 +9,7 @@ function main() {
 
 // Increment final digit for bug fixes, middle digit for new functionality.
 // Remember to add an entry in CHANGELOG when updating the version number.
-var scriptVersion = "0.66.1";
+var scriptVersion = "0.66.2";
 var scriptEnvironment = "dvz"; // not in newsdev's ai2html -- overrides whatever detectScriptEnvironment() does
 var PROMO_WIDTH = 1200;
 
@@ -350,7 +350,8 @@ if (runningInNode()) {
     parseArtboardName,
     parseObjectName,
     cleanObjectName,
-    initDocumentSettings
+    initDocumentSettings,
+    uniqAssetName
   ].forEach(function(f) {
     module.exports[f.name] = f;
   });
@@ -2511,15 +2512,6 @@ function convertAreaTextPath(frame) {
 // ai2html image functions
 // =================================
 
-function getArtboardImageId(ab) {
-  return nameSpace + "ai" + getArtboardId(ab) + "-0";
-}
-
-function getLayerImageId(lyr, ab) {
-  return nameSpace + "ai" + getArtboardId(ab) + "-" + cleanObjectName(lyr.name);
-}
-
-
 function getArtboardImageName(ab) {
   return getArtboardFullName(ab);
 }
@@ -2528,18 +2520,33 @@ function getLayerImageName(lyr, ab) {
   return getArtboardImageName(ab) + "-" + cleanObjectName(lyr.name);
 }
 
+function getImageId(imgName) {
+  return nameSpace + imgName + "-img";
+}
+
+function uniqAssetName(name, names) {
+  var uniqName = name;
+  var num = 2;
+  while (contains(names, uniqName)) {
+    uniqName = name + '-' + num;
+    num++;
+  }
+  return uniqName;
+}
+
+
 // Generate images and return HTML embed code
 function convertArtItems(activeArtboard, textFrames, masks, settings) {
   var imageFolder = getImageFolder(settings);
   var imgName = getArtboardImageName(activeArtboard);
-  // TODO: improve
   var imgFile = imgName + '.' + (settings.image_format[0] || "png").substring(0,3);
-  var imgId = getArtboardImageId(activeArtboard);
+  var imgId = getImageId(imgName);
   var imgClass = nameSpace + 'aiImg';
   var imageDestination = pathJoin(imageFolder, imgName);
   var hideTextFrames = !isTrue(settings.testing_mode);
   var html = "";
   var n = textFrames.length;
+  var imageNames = [];
   var svgLayers;
   var i;
 
@@ -2553,14 +2560,18 @@ function convertArtItems(activeArtboard, textFrames, masks, settings) {
 
   svgLayers = findSvgExportLayers();
   if (svgLayers.length > 0) {
-    // TODO: export layer content
     forEach(svgLayers, function(lyr) {
-      var svgName = getLayerImageName(lyr, activeArtboard);
-      var svgId = getLayerImageId(lyr, activeArtboard);
+      var svgName = uniqAssetName(getLayerImageName(lyr, activeArtboard), imageNames);
+      var svgId = getImageId(svgName);
       var svgClass = imgClass + ' ' + nameSpace + 'aiAbs';
       var outputPath = pathJoin(imageFolder, svgName);
-      exportSVG(outputPath, activeArtboard, masks, [lyr]);
-      html += generateImageHtml(svgName + '.svg', svgId, svgClass, activeArtboard, settings);
+      var ofile = exportSVG(outputPath, activeArtboard, masks, [lyr]);
+      if (ofile) {
+        // only generate html for files that were created (empty files are not created)
+        message('Exported a layer as ' + ofile.replace(/.*\//, ''));
+        imageNames.push(svgName);
+        html += generateImageHtml(svgName + '.svg', svgId, svgClass, activeArtboard, settings);
+      }
     });
 
     // hide all svg Layers
@@ -2755,6 +2766,9 @@ function exportImageFiles(dest, ab, formats, initialScaling, doubleres) {
 // Copy contents of an artboard to a temporary document, excluding objects
 //   that are hidden by masks
 // layers Optional argument to copy specific layers (default is all layers)
+// Returns a newly-created document containing artwork to export, or null
+//   if no image should be created.
+//
 // TODO: grouped text is copied (but hidden). Avoid copying text in groups, for
 //   smaller SVG output.
 function copyArtboardForImageExport(ab, masks, layers) {
@@ -2763,24 +2777,30 @@ function copyArtboardForImageExport(ab, masks, layers) {
       sourceLayers = layers || toArray(doc.layers),
       destLayer = doc.layers.add(),
       destGroup = doc.groupItems.add(),
+      itemCount = 0,
       groupPos, group2, doc2;
 
   destLayer.name = "ArtboardContent";
   destGroup.move(destLayer, ElementPlacement.PLACEATEND);
   forEach(sourceLayers, copyLayer);
-  // need to save group position before copying to second document. Oddly,
-  // the reported position of the original group changes after duplication
-  groupPos = destGroup.position;
-  // create temp document (pretty slow -- ~1.5s)
-  doc2 = app.documents.add(DocumentColorSpace.RGB, doc.width, doc.height, 1);
-  doc2.pageOrigin = doc.pageOrigin; // not sure if needed
-  doc2.rulerOrigin = doc.rulerOrigin;
-  doc2.artboards[0].artboardRect = artboardBounds;
-  group2 = destGroup.duplicate(doc2.layers[0], ElementPlacement.PLACEATEND);
-  group2.position = groupPos;
+
+  // kludge: export empty documents iff layers argument is missing (assuming
+  //    this is the main artboard image, which is needed to set the container size)
+  if (itemCount > 0 || !layers) {
+    // need to save group position before copying to second document. Oddly,
+    // the reported position of the original group changes after duplication
+    groupPos = destGroup.position;
+    // create temp document (pretty slow -- ~1.5s)
+    doc2 = app.documents.add(DocumentColorSpace.RGB, doc.width, doc.height, 1);
+    doc2.pageOrigin = doc.pageOrigin; // not sure if needed
+    doc2.rulerOrigin = doc.rulerOrigin;
+    doc2.artboards[0].artboardRect = artboardBounds;
+    group2 = destGroup.duplicate(doc2.layers[0], ElementPlacement.PLACEATEND);
+    group2.position = groupPos;
+  }
   destGroup.remove();
   destLayer.remove();
-  return doc2;
+  return doc2 || null;
 
   function copyLayer(lyr) {
     var mask;
@@ -2851,6 +2871,7 @@ function copyArtboardForImageExport(ab, masks, layers) {
     var copy;
     if (!excluded) {
       copy = item.duplicate(dest, ElementPlacement.PLACEATEND); //  duplicateItem(item, dest);
+      itemCount++;
       if (copy.typename == 'GroupItem') {
         removeHiddenItems(copy);
       }
@@ -2858,6 +2879,7 @@ function copyArtboardForImageExport(ab, masks, layers) {
   }
 }
 
+// Returns path of output SVG file, or null if no file was created
 function exportSVG(dest, ab, masks, layers) {
   // Illustrator's SVG output contains all objects in a document (it doesn't
   //   clip to the current artboard), so we copy artboard objects to a temporary
@@ -2865,6 +2887,9 @@ function exportSVG(dest, ab, masks, layers) {
   var exportDoc = copyArtboardForImageExport(ab, masks, layers);
   var opts = new ExportOptionsSVG();
   var ofile = dest + '.svg';
+
+  if (!exportDoc) return null;
+
   opts.embedAllFonts         = false;
   opts.fontSubsetting        = SVGFontSubsetting.None;
   opts.compressed            = false;
@@ -2879,6 +2904,7 @@ function exportSVG(dest, ab, masks, layers) {
   exportDoc.close(SaveOptions.DONOTSAVECHANGES);
   // prevent SVG strokes from scaling
   injectCSSinSVG(ofile, 'rect,circle,path,line,polyline { vector-effect: non-scaling-stroke; }');
+  return ofile;
 }
 
 // Injects css and rewrites file
