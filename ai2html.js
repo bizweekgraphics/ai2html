@@ -9,7 +9,7 @@ function main() {
 
 // Increment final digit for bug fixes, middle digit for new functionality.
 // Remember to add an entry in CHANGELOG when updating the version number.
-var scriptVersion = "0.66.2";
+var scriptVersion = "0.66.4";
 var scriptEnvironment = "dvz"; // not in newsdev's ai2html -- overrides whatever detectScriptEnvironment() does
 var PROMO_WIDTH = 1200;
 
@@ -269,6 +269,7 @@ var blendModes = [
 ];
 
 // list of CSS properties used for translating AI text styles
+// (used for creating a unique identifier for each style)
 var cssTextStyleProperties = [
   'font-family',
   'font-size',
@@ -276,6 +277,7 @@ var cssTextStyleProperties = [
   'font-style',
   'color',
   'line-height',
+  'height', // used for point-type paragraph styles
   'letter-spacing',
   'opacity',
   'padding-top',
@@ -1938,11 +1940,12 @@ function importTextFrameParagraphs(textFrame) {
     } else {
       d = {
         text: p.contents,
-        aiStyle: getParagraphStyle(p, opacity),
+        aiStyle: getParagraphStyle(p),
         ranges: getParagraphRanges(p)
       };
       d.aiStyle.opacity = opacity;
       d.aiStyle.blendMode = blendMode;
+      d.aiStyle.frameType = textFrame.kind == TextType.POINTTEXT ? 'point' : 'area';
     }
     data.push(d);
     charsLeft -= (plen + 1); // char count + newline
@@ -1960,7 +1963,8 @@ function cleanHtmlTags(str) {
 }
 
 function generateParagraphHtml(pData, baseStyle, pStyles, cStyles) {
-  var html, diff, classname, range, text;
+  var classStr = '',
+      html, diff, range, text;
   if (pData.text.length === 0) { // empty pg
     // TODO: Calculate the height of empty paragraphs and generate
     // CSS to preserve this height (not supported by Illustrator API)
@@ -1969,18 +1973,15 @@ function generateParagraphHtml(pData, baseStyle, pStyles, cStyles) {
   diff = objectSubtract(pData.cssStyle, baseStyle);
   // Give the pg a class, if it has a different style than the base pg class
   if (diff) {
-    classname = getTextStyleClass(diff, pStyles, 'pstyle');
-    html = '<p class="' + classname + '">';
-  } else {
-    html = '<p>';
+    classStr = ' class="' + getTextStyleClass(diff, pStyles, 'pstyle') + '"';
   }
+  html = '<p' + classStr + '>';
   for (var j=0; j<pData.ranges.length; j++) {
     range = pData.ranges[j];
     range.text = cleanHtmlTags(range.text);
     diff = objectSubtract(range.cssStyle, pData.cssStyle);
     if (diff) {
-      classname = getTextStyleClass(diff, cStyles, 'cstyle');
-      html += '<span class="' + classname + '">';
+      html += '<span class="' + getTextStyleClass(diff, cStyles, 'cstyle') + '">';
     }
     html += cleanText(range.text);
     if (diff) {
@@ -2047,7 +2048,8 @@ function deriveCssStyles(frameData) {
     'padding-bottom': 0,
     'padding-top': 0,
     'mix-blend-mode': 'normal',
-    'font-style': 'normal'
+    'font-style': 'normal',
+    'height': 'auto'
   };
   var defaultAiStyle = {
     opacity: 100 // given as AI style because opacity is converted to several CSS properties
@@ -2058,11 +2060,12 @@ function deriveCssStyles(frameData) {
     forEach(frame.paragraphs, analyzeParagraphStyle);
   });
 
-  // find the most common pg style and override certain properties
+  // initialize the base <p> style to be equal to the most common pg style
   if (pgStyles.length > 0) {
     pgStyles.sort(compareCharCount);
     extend(baseStyle, pgStyles[0].cssStyle);
   }
+  // override certain base style properties with default values
   extend(baseStyle, defaultCssStyle, convertAiTextStyle(defaultAiStyle));
   return baseStyle;
 
@@ -2211,6 +2214,10 @@ function convertAiTextStyle(aiStyle) {
   }
   if ('leading' in aiStyle) {
     cssStyle["line-height"] = aiStyle.leading + "px";
+    // Fix for line height error affecting point text in Chrome/Safari at certain browser zooms.
+    if (aiStyle.frameType == 'point') {
+      cssStyle.height = cssStyle["line-height"];
+    }
   }
   // if (('opacity' in aiStyle) && aiStyle.opacity < 100) {
   if ('opacity' in aiStyle) {
@@ -2439,9 +2446,10 @@ function getTextFrameCss(thisFrame, abBox, pgData) {
     // EXPERIMENTAL feature
     // Put a box around the text, if the text frame's textPath is styled
     styles += convertAreaTextPath(thisFrame);
-  } else {
+  } else {  // point text
     // point text aligned to midline (sensible default for chart y-axes, map labels, etc.)
     v_align = "middle";
+    htmlW += 22; // add a bit of extra width to try to prevent overflow
   }
 
   if (thisFrameAttributes.valign) {
@@ -2466,10 +2474,10 @@ function getTextFrameCss(thisFrame, abBox, pgData) {
   if (alignment == "right") {
     styles += "right:" + formatCssPct(abBox.width - (htmlL + htmlBox.width), abBox.width);
   } else if (alignment == "center") {
-    styles += "left:" + formatCssPct(htmlL + htmlBox.width/ 2, abBox.width);
+    styles += "left:" + formatCssPct(htmlL + htmlBox.width / 2, abBox.width);
     // using pct margin causes problems in a dynamic layout, switching to pixels
     // styles += "margin-left:" + formatCssPct(-htmlW / 2, abBox.width);
-    styles += "margin-left:-" + roundTo(htmlBox.width / 2, 1) + 'px;';
+    styles += "margin-left:-" + roundTo(htmlW / 2, 1) + 'px;';
   } else {
     styles += "left:" + formatCssPct(htmlL, abBox.width);
   }
@@ -2479,7 +2487,7 @@ function getTextFrameCss(thisFrame, abBox, pgData) {
     classes += ' ' + nameSpace + 'aiPointText';
     // using pixel width with point text, because pct width causes alignment problems -- see issue #63
     // adding extra pixels in case HTML width is slightly less than AI width (affects alignment of right-aligned text)
-    styles += "width:" + roundTo(htmlW + 2, cssPrecision) + 'px;';
+    styles += "width:" + roundTo(htmlW, cssPrecision) + 'px;';
   } else {
     // area text uses pct width, so width of text boxes will scale
     // TODO: consider only using pct width with wider text boxes that contain paragraphs of text
