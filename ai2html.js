@@ -120,7 +120,7 @@ var defaultBaseSettings = {
   promo_image_width: {defaultValue: 1200, includeInSettingsBlock: false, includeInConfigFile: false},
   image_format: {defaultValue: ["auto"], includeInSettingsBlock: true, includeInConfigFile: false},
   write_image_files: {defaultValue: "yes", includeInSettingsBlock: false, includeInConfigFile: false},
-  responsiveness: {defaultValue: "dynamic", includeInSettingsBlock: true, includeInConfigFile: false},
+  responsiveness: {defaultValue: "fixed", includeInSettingsBlock: true, includeInConfigFile: false},
   max_width: {defaultValue: "", includeInSettingsBlock: false, includeInConfigFile: false},
   output: {defaultValue: "one-file", includeInSettingsBlock: false, includeInConfigFile: false},
   project_name: {defaultValue: "", includeInSettingsBlock: false, includeInConfigFile: false},
